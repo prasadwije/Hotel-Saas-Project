@@ -381,7 +381,6 @@ export function BookingModal({ data }: Props) {
                     selected={range}
                     onSelect={setRange}
                     disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
-                    initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
