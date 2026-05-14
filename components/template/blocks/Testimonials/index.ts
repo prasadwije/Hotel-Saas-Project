@@ -1,0 +1,10 @@
+export { TestimonialsV1 } from "./TestimonialsV1";
+export { TestimonialsV2 } from "./TestimonialsV2";
+export { TestimonialsV3 } from "./TestimonialsV3";
+export { TestimonialsV4 } from "./TestimonialsV4";
+export { TestimonialsV5 } from "./TestimonialsV5";
+export { TestimonialsV6 } from "./TestimonialsV6";
+export { TestimonialsV7 } from "./TestimonialsV7";
+export { TestimonialsV8 } from "./TestimonialsV8";
+export { TestimonialsV9 } from "./TestimonialsV9";
+export { TestimonialsV10 } from "./TestimonialsV10";

@@ -1,0 +1,10 @@
+export { RoomsV1 } from "./RoomsV1";
+export { RoomsV2 } from "./RoomsV2";
+export { RoomsV3 } from "./RoomsV3";
+export { RoomsV4 } from "./RoomsV4";
+export { RoomsV5 } from "./RoomsV5";
+export { RoomsV6 } from "./RoomsV6";
+export { RoomsV7 } from "./RoomsV7";
+export { RoomsV8 } from "./RoomsV8";
+export { RoomsV9 } from "./RoomsV9";
+export { RoomsV10 } from "./RoomsV10";

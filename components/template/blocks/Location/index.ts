@@ -1,0 +1,10 @@
+export { LocationV1 } from "./LocationV1";
+export { LocationV2 } from "./LocationV2";
+export { LocationV3 } from "./LocationV3";
+export { LocationV4 } from "./LocationV4";
+export { LocationV5 } from "./LocationV5";
+export { LocationV6 } from "./LocationV6";
+export { LocationV7 } from "./LocationV7";
+export { LocationV8 } from "./LocationV8";
+export { LocationV9 } from "./LocationV9";
+export { LocationV10 } from "./LocationV10";

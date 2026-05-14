@@ -1,0 +1,10 @@
+export { HeroV1 } from "./HeroV1";
+export { HeroV2 } from "./HeroV2";
+export { HeroV3 } from "./HeroV3";
+export { HeroV4 } from "./HeroV4";
+export { HeroV5 } from "./HeroV5";
+export { HeroV6 } from "./HeroV6";
+export { HeroV7 } from "./HeroV7";
+export { HeroV8 } from "./HeroV8";
+export { HeroV9 } from "./HeroV9";
+export { HeroV10 } from "./HeroV10";
