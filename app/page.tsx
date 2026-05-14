@@ -1,31 +1,56 @@
 import { Metadata } from "next";
 import { HotelTemplate } from "@/components/template/HotelTemplate";
 import { firstHeroImage } from "@/components/template/blocks/shared-logic";
-import { demoHotelData as hotelData } from "@/lib/demo-hotel";
+import { createClient } from "@/lib/supabase/server";
 
-// SEO Metadata සැකසීම
-const description = hotelData.aboutText?.slice(0, 155) || "";
-const title = `${hotelData.businessName} — ${hotelData.heroTitle}`;
-const ogImage = firstHeroImage(hotelData) ?? "";
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = await createClient();
+  const { data: hotel } = await supabase.from('hotels').select('site_config, business_name').limit(1).single();
 
-export const metadata: Metadata = {
-  title: title,
-  description: description,
-  openGraph: {
-    title: title,
-    description: description,
-    images: [ogImage ? [{ url: ogImage }] : []],
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: title,
-    description: description,
-    images: [ogImage],
-  },
-};
+  if (!hotel) return { title: 'Hotel Not Found' };
+  
+  const hotelData = hotel.site_config;
+  const description = hotelData?.aboutText?.slice(0, 155) || "";
+  const title = `${hotelData?.businessName || hotel.business_name} — ${hotelData?.heroTitle || 'Welcome'}`;
+  const ogImage = firstHeroImage(hotelData) ?? "";
 
-export default function Home() {
-  // සර්වර් එකේ උයලා (Server Component) කෙලින්ම Template එකට දත්ත යවනවා
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: ogImage ? [{ url: ogImage }] : [],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
+
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: hotel, error } = await supabase.from('hotels').select('*, rooms(*)').limit(1).single();
+
+  if (error || !hotel) {
+    return <div>Hotel not found or database error: {error?.message}</div>;
+  }
+
+  // Merge database rooms back into site_config
+  const hotelData = {
+    ...hotel.site_config,
+    rooms: hotel.rooms && hotel.rooms.length > 0 ? hotel.rooms.map((r: any) => ({
+      name: r.name,
+      price: r.price ? `€${r.price}` : '', // Formatting best effort
+      description: r.description,
+      image: r.image_url,
+      features: r.features,
+    })) : hotel.site_config?.rooms
+  };
+
   return <HotelTemplate data={hotelData} />;
 }

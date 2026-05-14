@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
     Hotel,
     Settings as SettingsIcon,
@@ -249,17 +250,58 @@ const SEED_CLIENTS: Client[] = [
 
 // ---------- Page ----------
 export default function AdminPage() {
-    const [clients, setClients] = useState<Client[]>(SEED_CLIENTS);
+    const [clients, setClients] = useState<Client[]>([]);
+    const [loading, setLoading] = useState(true);
     const [activeNav, setActiveNav] = useState<"clients" | "settings">("clients");
     const [editingId, setEditingId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
+
+    useEffect(() => {
+        const fetchClients = async () => {
+            const supabase = createClient();
+            
+            // Auth Guard
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+
+            if (!profile || profile.role !== 'super_admin') {
+                window.location.href = '/login';
+                return;
+            }
+
+            // Fetch Hotels
+            const { data, error } = await supabase.from('hotels').select('*');
+            if (data) {
+                setClients(data.map((h: any) => ({
+                    id: h.id,
+                    subdomain: h.subdomain || "",
+                    status: "active",
+                    data: h.site_config || emptyHotel("New Hotel"),
+                })));
+            }
+            setLoading(false);
+        };
+        fetchClients();
+    }, []);
 
     const editingClient = useMemo(
         () => clients.find((c) => c.id === editingId) ?? null,
         [clients, editingId],
     );
 
-    const upsertClient = (updated: Client) => {
+    const upsertClient = async (updated: Client) => {
+        const supabase = createClient();
+        
+        // Optimistic UI update
         setClients((prev) => {
             const idx = prev.findIndex((c) => c.id === updated.id);
             if (idx === -1) return [...prev, updated];
@@ -267,10 +309,31 @@ export default function AdminPage() {
             copy[idx] = updated;
             return copy;
         });
+
+        if (updated.id.startsWith('c')) {
+            const { data, error } = await supabase.from('hotels').insert({
+                business_name: updated.data.businessName,
+                subdomain: updated.subdomain,
+                site_config: updated.data
+            }).select().single();
+            if (data) {
+                setClients((prev) => prev.map(c => c.id === updated.id ? { ...c, id: data.id } : c));
+            }
+        } else {
+            await supabase.from('hotels').update({
+                business_name: updated.data.businessName,
+                subdomain: updated.subdomain,
+                site_config: updated.data
+            }).eq('id', updated.id);
+        }
     };
 
-    const deleteClient = (id: string) => {
+    const deleteClient = async (id: string) => {
+        const supabase = createClient();
         setClients((prev) => prev.filter((c) => c.id !== id));
+        if (!id.startsWith('c')) {
+            await supabase.from('hotels').delete().eq('id', id);
+        }
     };
 
     const handleAddNew = () => {
@@ -284,6 +347,8 @@ export default function AdminPage() {
         upsertClient(fresh);
         setEditingId(id);
     };
+
+    if (loading) return <div className="p-8 flex justify-center">Loading clients...</div>;
 
     const filtered = clients.filter(
         (c) =>
