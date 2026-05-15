@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Globe, MapPin, Phone, Mail } from "lucide-react";
 import type { BlockProps } from "@/components/template/blocks/shared";
 import { SERIF, getFooterLinks } from "@/components/template/blocks/shared";
 
@@ -16,12 +17,12 @@ export function FooterV2({ data }: BlockProps) {
             <div className="mt-6 flex items-center gap-3">
               {data.socialLinks?.facebook && (
                 <a href={data.socialLinks?.facebook} target="_blank" rel="noreferrer" aria-label="Facebook" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/80 transition-colors hover:border-transparent hover:text-white" onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--site-primary)")} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}>
-                  <Facebook className="h-4 w-4" />
+                  <Globe className="h-4 w-4" />
                 </a>
               )}
               {data.socialLinks?.instagram && (
                 <a href={data.socialLinks?.instagram} target="_blank" rel="noreferrer" aria-label="Instagram" className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white/80 transition-colors hover:border-transparent hover:text-white" onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--site-primary)")} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}>
-                  <Instagram className="h-4 w-4" />
+                  <Globe className="h-4 w-4" />
                 </a>
               )}
             </div>
