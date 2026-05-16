@@ -248,6 +248,7 @@ export default function AdminPage() {
     const [clients, setClients] = useState<Client[]>([]);
     const [packages, setPackages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeNav, setActiveNav] = useState<"clients" | "settings">("clients");
     const [editingId, setEditingId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     
@@ -260,16 +261,30 @@ export default function AdminPage() {
     useEffect(() => {
         const fetchClients = async () => {
             const supabase = createClient();
+            
+            // Auth Guard
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) { window.location.href = '/login'; return; }
+            if (!session) {
+                window.location.href = '/login';
+                return;
+            }
 
-            const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-            if (!profile || profile.role !== 'super_admin') { window.location.href = '/login'; return; }
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+
+            if (!profile || profile.role !== 'super_admin') {
+                window.location.href = '/login';
+                return;
+            }
 
             const { data: pkgs } = await supabase.from('packages').select('*');
             if (pkgs) setPackages(pkgs);
 
-            const { data } = await supabase.from('hotels').select('*');
+            // Fetch Hotels
+            const { data, error } = await supabase.from('hotels').select('*');
             if (data) {
                 setClients(data.map((h: any) => ({
                     id: h.id,
@@ -285,7 +300,44 @@ export default function AdminPage() {
         fetchClients();
     }, []);
 
-    const editingClient = useMemo(() => clients.find((c) => c.id === editingId) ?? null, [clients, editingId]);
+    const editingClient = useMemo(
+        () => clients.find((c) => c.id === editingId) ?? null,
+        [clients, editingId],
+    );
+
+    const upsertClient = async (updated: Client) => {
+        const supabase = createClient();
+        
+        // Optimistic UI update
+        setClients((prev) => {
+            const idx = prev.findIndex((c) => c.id === updated.id);
+            if (idx === -1) return [...prev, updated];
+            const copy = [...prev];
+            copy[idx] = updated;
+            return copy;
+        });
+
+        if (updated.id.startsWith('c')) {
+            // Handled by create new
+            return;
+        } else {
+            await supabase.from('hotels').update({
+                business_name: updated.data.businessName,
+                subdomain: updated.subdomain,
+                site_config: updated.data,
+                is_admin_enabled: updated.is_admin_enabled,
+                package_id: updated.package_id,
+            }).eq('id', updated.id);
+        }
+    };
+
+    const deleteClient = async (id: string) => {
+        const supabase = createClient();
+        setClients((prev) => prev.filter((c) => c.id !== id));
+        if (!id.startsWith('c')) {
+            await supabase.from('hotels').delete().eq('id', id);
+        }
+    };
 
     const handleCreateNew = async () => {
         const supabase = createClient();
@@ -316,116 +368,143 @@ export default function AdminPage() {
             setNewPackageId("");
         }
     };
-    
-    const upsertClient = async (updated: Client) => {
-        const supabase = createClient();
-        setClients(prev => prev.map(c => c.id === updated.id ? updated : c));
-        if (updated.id.startsWith('c')) return; // handled by create new
-        await supabase.from('hotels').update({
-            business_name: updated.data.businessName,
-            subdomain: updated.subdomain,
-            site_config: updated.data,
-            is_admin_enabled: updated.is_admin_enabled,
-            package_id: updated.package_id,
-        }).eq('id', updated.id);
-    };
 
-    const deleteClient = async (id: string) => {
-        const supabase = createClient();
-        setClients((prev) => prev.filter((c) => c.id !== id));
-        if (!id.startsWith('c')) await supabase.from('hotels').delete().eq('id', id);
-        setEditingId(null);
-    };
+    if (loading) return <div className="p-8 flex justify-center">Loading clients...</div>;
 
-    if (loading) return <div className="p-8 flex justify-center">Loading God Mode...</div>;
-
-    const filtered = clients.filter(c => c.data.businessName.toLowerCase().includes(search.toLowerCase()) || c.subdomain.toLowerCase().includes(search.toLowerCase()));
+    const filtered = clients.filter(
+        (c) =>
+            c.data.businessName.toLowerCase().includes(search.toLowerCase()) ||
+            c.subdomain.toLowerCase().includes(search.toLowerCase()),
+    );
 
     return (
-        <div className="flex h-screen w-full bg-neutral-50 text-neutral-900 overflow-hidden">
-            <aside className="w-72 shrink-0 flex flex-col border-r border-neutral-200 bg-white">
-                <header className="flex h-16 items-center justify-between border-b border-neutral-200 px-4">
-                    <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-neutral-900 text-white">
-                            <Hotel className="h-4 w-4" />
+        <div className="flex min-h-screen w-full bg-neutral-50 text-neutral-900">
+            {editingClient ? (
+                <EditorWorkspace
+                    key={editingClient.id}
+                    client={editingClient}
+                    packages={packages}
+                    onSave={(c) => {
+                        upsertClient(c);
+                        setEditingId(null);
+                    }}
+                    onClose={() => setEditingId(null)}
+                    onDelete={() => {
+                        deleteClient(editingClient.id);
+                        setEditingId(null);
+                    }}
+                />
+            ) : (
+                <>
+                    {/* Sidebar */}
+                    <aside className="hidden w-64 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
+                        <div className="flex h-16 items-center gap-2 border-b border-neutral-200 px-5">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-neutral-900 text-white">
+                                <Hotel className="h-4 w-4" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold leading-tight">Super Admin</p>
+                                <p className="text-[11px] text-neutral-500">God Mode</p>
+                            </div>
                         </div>
-                        <p className="text-sm font-semibold">God Mode</p>
-                    </div>
-                    <Button size="sm" onClick={() => setShowNewModal(true)} className="gap-1 h-8 px-2">
-                        <Plus className="h-4 w-4" /> New
-                    </Button>
-                </header>
-                <div className="p-3 border-b border-neutral-100">
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-neutral-400" />
-                        <Input placeholder="Search hotels..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9" />
-                    </div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2">
-                    {filtered.map(c => (
-                        <div
-                            key={c.id}
-                            onClick={() => setEditingId(c.id)}
-                            className={`p-3 mb-1 rounded-md cursor-pointer transition ${editingId === c.id ? 'bg-neutral-900 text-white' : 'hover:bg-neutral-100'}`}
-                        >
-                            <p className="text-sm font-medium">{c.data.businessName}</p>
-                            <p className={`text-xs ${editingId === c.id ? 'text-neutral-300' : 'text-neutral-500'}`}>{c.subdomain}</p>
+                        <nav className="flex flex-1 flex-col gap-1 p-3">
+                            <SidebarItem
+                                icon={<Hotel className="h-4 w-4" />}
+                                label="Hotels / Clients"
+                                active={activeNav === "clients"}
+                                onClick={() => {
+                                    setActiveNav("clients");
+                                    setEditingId(null);
+                                }}
+                            />
+                            <SidebarItem
+                                icon={<SettingsIcon className="h-4 w-4" />}
+                                label="Settings"
+                                active={activeNav === "settings"}
+                                onClick={() => {
+                                    setActiveNav("settings");
+                                    setEditingId(null);
+                                }}
+                            />
+                        </nav>
+                        <div className="border-t border-neutral-200 p-3">
+                            <SidebarItem icon={<LogOut className="h-4 w-4" />} label="Logout" onClick={async () => { await createClient().auth.signOut(); window.location.href = '/login'; }} />
                         </div>
-                    ))}
-                </div>
-            </aside>
-            
-            <main className="flex-1 flex overflow-hidden relative">
-                {editingClient ? (
-                    <EditorWorkspace
-                        key={editingClient.id}
-                        client={editingClient}
-                        packages={packages}
-                        onSave={upsertClient}
-                        onClose={() => setEditingId(null)}
-                        onDelete={() => deleteClient(editingClient.id)}
-                    />
-                ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center bg-neutral-50 text-neutral-400">
-                        <Hotel className="h-12 w-12 mb-4 opacity-20" />
-                        <p>Select a hotel from the sidebar to edit.</p>
-                    </div>
-                )}
-            </main>
+                    </aside>
 
-            {showNewModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="w-[400px] bg-white rounded-xl shadow-xl p-6">
-                        <h2 className="text-lg font-semibold mb-4">Add New Hotel</h2>
-                        <div className="space-y-4">
+                    {/* Main */}
+                    <main className="flex-1">
+                        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-neutral-200 bg-white/80 px-6 backdrop-blur">
                             <div>
-                                <Label>Business Name</Label>
-                                <Input value={newHotelName} onChange={e => setNewHotelName(e.target.value)} placeholder="E.g. Sunset Resort" />
+                                <h1 className="text-base font-semibold tracking-tight">
+                                    {activeNav === "settings" ? "Settings" : "Clients"}
+                                </h1>
+                                <p className="text-xs text-neutral-500">
+                                    {activeNav === "settings"
+                                        ? "Workspace preferences."
+                                        : `${clients.length} total clients`}
+                                </p>
                             </div>
-                            <div>
-                                <Label>Subdomain</Label>
-                                <Input value={newSubdomain} onChange={e => setNewSubdomain(e.target.value)} placeholder="sunset" />
-                            </div>
-                            <div>
-                                <Label>Package</Label>
-                                <Select value={newPackageId} onValueChange={setNewPackageId}>
-                                    <SelectTrigger><SelectValue placeholder="Select a package" /></SelectTrigger>
-                                    <SelectContent>
-                                        {packages.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                            {activeNav === "clients" && (
+                                <Button onClick={() => setShowNewModal(true)} className="gap-2">
+                                    <Plus className="h-4 w-4" /> Add new client
+                                </Button>
+                            )}
+                        </header>
+
+                        <div className="p-6">
+                            {activeNav === "settings" ? (
+                                <SettingsPanel />
+                            ) : (
+                                <ClientsTable
+                                    clients={filtered}
+                                    search={search}
+                                    onSearch={setSearch}
+                                    onEdit={setEditingId}
+                                    onDelete={deleteClient}
+                                />
+                            )}
+                        </div>
+                    </main>
+
+                    {/* Modal */}
+                    {showNewModal && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                            <div className="w-[400px] bg-white rounded-xl shadow-xl p-6">
+                                <h2 className="text-lg font-semibold mb-4">Add New Hotel</h2>
+                                <div className="space-y-4">
+                                    <div>
+                                        <Label>Business Name</Label>
+                                        <Input value={newHotelName} onChange={e => setNewHotelName(e.target.value)} placeholder="E.g. Sunset Resort" />
+                                    </div>
+                                    <div>
+                                        <Label>Subdomain</Label>
+                                        <Input value={newSubdomain} onChange={e => setNewSubdomain(e.target.value)} placeholder="sunset" />
+                                    </div>
+                                    <div>
+                                        <Label>Package</Label>
+                                        <Select value={newPackageId} onValueChange={setNewPackageId}>
+                                            <SelectTrigger><SelectValue placeholder="Select a package" /></SelectTrigger>
+                                            <SelectContent>
+                                                {packages.map(p => <SelectItem key={p.id} value={p.id}>{p.name} - ${p.price}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="mt-6 flex justify-end gap-2">
+                                    <Button variant="ghost" onClick={() => setShowNewModal(false)}>Cancel</Button>
+                                    <Button onClick={handleCreateNew} disabled={!newHotelName || !newSubdomain}>Create</Button>
+                                </div>
                             </div>
                         </div>
-                        <div className="mt-6 flex justify-end gap-2">
-                            <Button variant="ghost" onClick={() => setShowNewModal(false)}>Cancel</Button>
-                            <Button onClick={handleCreateNew} disabled={!newHotelName || !newSubdomain}>Create</Button>
-                        </div>
-                    </div>
-                </div>
+                    )}
+                </>
             )}
         </div>
     );
 }
+
+function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick: () => void; }) { return ( <button onClick={onClick} className={`flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition ${active ? "bg-neutral-900 text-white" : "text-neutral-700 hover:bg-neutral-100"}`}> {icon} <span>{label}</span> </button> ); }
 
 // ---------- Clients table ----------
 function ClientsTable({
@@ -703,7 +782,7 @@ function ClientEditor({ client, packages, onChange, onDelete }: { client: Client
                                 />
                             </div>
                         </Field>
-                        <Field label="Admin Dashboard Access"><div className="flex h-10 items-center gap-3"><Switch checked={!!client.is_admin_enabled} onCheckedChange={(v) => update({ is_admin_enabled: v })} /><span className="text-sm text-neutral-600">{client.is_admin_enabled ? "Enabled" : "Disabled"}</span></div></Field><Field label="Subscription Package"><Select value={client.package_id || ""} onValueChange={(v) => update({ package_id: v })}><SelectTrigger><SelectValue placeholder="Select a package" /></SelectTrigger><SelectContent>{packages.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></Field><Field label="Status">
+                        <Field label="Admin Dashboard Access"><div className="flex h-10 items-center gap-3"><Switch checked={!!client.is_admin_enabled} onCheckedChange={(v) => update({ is_admin_enabled: v })} /><span className="text-sm text-neutral-600">{client.is_admin_enabled ? "Enabled" : "Disabled"}</span></div></Field><Field label="Subscription Package"><Select value={client.package_id || ""} onValueChange={(v) => update({ package_id: v })}><SelectTrigger><SelectValue placeholder="Select a package" /></SelectTrigger><SelectContent>{packages.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></Field><Field label="Admin Dashboard Access"><div className="flex h-10 items-center gap-3"><Switch checked={!!client.is_admin_enabled} onCheckedChange={(v) => update({ is_admin_enabled: v })} /><span className="text-sm text-neutral-600">{client.is_admin_enabled ? "Enabled" : "Disabled"}</span></div></Field><Field label="Subscription Package"><Select value={client.package_id || ""} onValueChange={(v) => update({ package_id: v })}><SelectTrigger><SelectValue placeholder="Select a package" /></SelectTrigger><SelectContent>{packages.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></Field><Field label="Status">
                             <Select
                                 value={client.status}
                                 onValueChange={(v: ClientStatus) => update({ status: v })}
