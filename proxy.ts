@@ -31,8 +31,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // ── Skip paths that are already platform-level (no tenant) ──────────────
-  // /login is a global SaaS page, not a tenant page.
-  const PLATFORM_PATHS = ['/login']
+  // /login and /super-admin are global SaaS pages, not tenant pages.
+  const PLATFORM_PATHS = ['/login', '/super-admin', '/api']
   const isPlatformPath = PLATFORM_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
 
   // ── Determine host ───────────────────────────────────────────────────────
@@ -43,10 +43,12 @@ export async function proxy(request: NextRequest) {
   const isLocalhostRoot =
     (host === 'localhost:3000' || host === 'localhost') && !pathname.startsWith('/[')
 
+  const isSaasDomain = host === process.env.NEXT_PUBLIC_SAAS_DOMAIN
+
   // ── Session refresh (runs for every request) ─────────────────────────────
   const sessionResponse = await updateSession(request)
 
-  if (isPlatformPath || isLocalhostRoot) {
+  if (isPlatformPath || isLocalhostRoot || isSaasDomain) {
     return sessionResponse
   }
 
