@@ -20,6 +20,8 @@ export type RoomRow = {
   description: string | null
   image_url: string | null
   features: string[] | null
+  gallery?: string[] | null
+  amenities?: string[] | null
 }
 
 /**
@@ -53,6 +55,8 @@ export function mergeRoomsIntoConfig(hotel: HotelRow): HotelData {
           description: r.description ?? '',
           image: r.image_url ?? '',
           features: r.features ?? [],
+          gallery: r.gallery ?? [],
+          amenities: r.amenities ?? [],
         }))
       : [];
   }
