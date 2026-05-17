@@ -290,6 +290,7 @@ export default function AdminPage() {
                     id: h.id,
                     subdomain: h.subdomain || "",
                     status: h.status || "active",
+                    data: h.site_config || emptyHotel(h.business_name || "New Hotel"),
                     is_admin_enabled: h.is_admin_enabled,
                     package_id: h.package_id,
                     is_booking_engine_enabled: h.is_booking_engine_enabled,
@@ -471,6 +472,7 @@ export default function AdminPage() {
                             {activeNav === "settings" ? (
                                 <SettingsPanel />
                             ) : (
+                                <ClientsTable
                                     clients={filtered}
                                     search={search}
                                     onSearch={setSearch}
