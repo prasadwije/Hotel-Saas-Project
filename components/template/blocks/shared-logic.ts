@@ -40,6 +40,7 @@ export type PagesConfig = Partial<Record<SubPageKey, PageConfig>>;
 export type SiteNavigation = { headerLinks: NavLink[]; footerLinks: NavLink[]; };
 
 export type HotelData = {
+    isBookingEngineEnabled?: boolean;
     businessName: string; primaryColor: string; heroTitle: string; heroSubtitle?: string;
     heroImages: HeroImageInput[]; heroTransition?: HeroTransition; aboutText: string;
     menuItems?: MenuItem[]; galleryImages?: string[]; address?: string;

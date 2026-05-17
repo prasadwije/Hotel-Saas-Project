@@ -7,9 +7,10 @@ export type HotelRow = {
   subdomain: string | null
   custom_domain: string | null
   is_admin_accessible: boolean
+  is_booking_engine_enabled: boolean
   status: string
   site_config: HotelData
-  rooms: RoomRow[]
+  hotel_rooms: RoomRow[]
 }
 
 export type RoomRow = {
@@ -29,7 +30,7 @@ export async function getHotelById(hotelId: string): Promise<HotelRow | null> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('hotels')
-    .select('*, rooms(*)')
+    .select('*, hotel_rooms(*)')
     .eq('id', hotelId)
     .single()
 
@@ -42,19 +43,23 @@ export async function getHotelById(hotelId: string): Promise<HotelRow | null> {
  * always has fresh room data from the database.
  */
 export function mergeRoomsIntoConfig(hotel: HotelRow): HotelData {
-  const rooms =
-    hotel.rooms && hotel.rooms.length > 0
-      ? hotel.rooms.map((r) => ({
+  let rooms = hotel.site_config?.rooms ?? [];
+  
+  if (hotel.is_booking_engine_enabled) {
+    rooms = hotel.hotel_rooms && hotel.hotel_rooms.length > 0
+      ? hotel.hotel_rooms.map((r) => ({
           name: r.name ?? '',
           price: r.price != null ? `€${r.price}` : '',
           description: r.description ?? '',
           image: r.image_url ?? '',
           features: r.features ?? [],
         }))
-      : hotel.site_config?.rooms ?? []
+      : [];
+  }
 
   return {
     ...hotel.site_config,
     rooms,
+    isBookingEngineEnabled: hotel.is_booking_engine_enabled,
   }
 }

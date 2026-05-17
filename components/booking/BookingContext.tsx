@@ -1,6 +1,8 @@
 "use client";
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
+import { bookRoomWaHref } from "@/components/template/blocks/shared-logic";
+
 type BookingCtx = {
   isOpen: boolean;
   roomName?: string;
@@ -10,14 +12,30 @@ type BookingCtx = {
 
 const Ctx = createContext<BookingCtx | null>(null);
 
-export function BookingProvider({ children }: { children: ReactNode }) {
+export function BookingProvider({ 
+  children, 
+  whatsapp, 
+  isBookingEngineEnabled 
+}: { 
+  children: ReactNode;
+  whatsapp?: string;
+  isBookingEngineEnabled?: boolean;
+}) {
   const [isOpen, setOpen] = useState(false);
   const [roomName, setRoomName] = useState<string | undefined>(undefined);
 
   const openBooking = useCallback((name?: string) => {
+    if (isBookingEngineEnabled === false) {
+      if (typeof window !== "undefined") {
+        const href = bookRoomWaHref(whatsapp, name);
+        if (href !== "#") window.open(href, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
     setRoomName(name);
     setOpen(true);
-  }, []);
+  }, [isBookingEngineEnabled, whatsapp]);
+
   const closeBooking = useCallback(() => setOpen(false), []);
 
   const value = useMemo(

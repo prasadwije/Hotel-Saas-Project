@@ -139,7 +139,7 @@ function hasSectionData(key: SectionKey, data: HotelData): boolean {
 
 export function HotelTemplate({ data }: Props) {
   return (
-    <BookingProvider>
+    <BookingProvider whatsapp={data.whatsapp} isBookingEngineEnabled={data.isBookingEngineEnabled}>
       <RoomDetailsProvider>
         <HotelTemplateInner data={data} />
         <BookingModal data={data} />
@@ -163,7 +163,7 @@ function HotelTemplateInner({ data }: Props) {
  */
 export function HotelSubPage({ data, children }: { data: HotelData; children: ReactNode }) {
   return (
-    <BookingProvider>
+    <BookingProvider whatsapp={data.whatsapp} isBookingEngineEnabled={data.isBookingEngineEnabled}>
       <RoomDetailsProvider>
         <TemplateShell data={data} forceSolidHeader>
           {children}

@@ -72,7 +72,7 @@ import { PreviewFrame } from "./preview-frame";
 
 // ---------- Types ----------
 type ClientStatus = "active" | "inactive";
-type Client = { id: string; subdomain: string; status: ClientStatus; data: HotelData; is_admin_enabled?: boolean; package_id?: string; };
+type Client = { id: string; subdomain: string; status: ClientStatus; data: HotelData; is_admin_enabled?: boolean; package_id?: string; is_booking_engine_enabled?: boolean; };
 
 const SECTION_KEYS: SectionKey[] = [
     "hero",
@@ -280,7 +280,7 @@ export default function AdminPage() {
                 return;
             }
 
-            const { data: pkgs } = await supabase.from('packages').select('*');
+            const { data: pkgs } = await supabase.from('hotel_packages').select('*');
             if (pkgs) setPackages(pkgs);
 
             // Fetch Hotels
@@ -290,9 +290,9 @@ export default function AdminPage() {
                     id: h.id,
                     subdomain: h.subdomain || "",
                     status: h.status || "active",
-                    data: h.site_config || emptyHotel("New Hotel"),
                     is_admin_enabled: h.is_admin_enabled,
                     package_id: h.package_id,
+                    is_booking_engine_enabled: h.is_booking_engine_enabled,
                 })));
             }
             setLoading(false);
@@ -359,6 +359,7 @@ export default function AdminPage() {
                 data: config,
                 is_admin_enabled: false,
                 package_id: data.package_id,
+                is_booking_engine_enabled: false,
             };
             setClients([...clients, newClient]);
             setEditingId(data.id);
@@ -366,6 +367,20 @@ export default function AdminPage() {
             setNewHotelName("");
             setNewSubdomain("");
             setNewPackageId("");
+        }
+    };
+
+    const handleToggleBooking = async (id: string, currentStatus: boolean) => {
+        const action = currentStatus ? "OFF" : "ON";
+        if (!confirm(`Are you sure you want to turn ${action} the Booking Engine for this hotel? This will reorganize rooms between the site config and the hotel_rooms table.`)) {
+            return;
+        }
+        const supabase = createClient();
+        const { error } = await supabase.rpc('toggle_booking_engine', { p_hotel_id: id, p_enable: !currentStatus });
+        if (error) {
+            alert("Failed to toggle booking engine: " + error.message);
+        } else {
+            setClients(prev => prev.map(c => c.id === id ? { ...c, is_booking_engine_enabled: !currentStatus } : c));
         }
     };
 
@@ -456,12 +471,12 @@ export default function AdminPage() {
                             {activeNav === "settings" ? (
                                 <SettingsPanel />
                             ) : (
-                                <ClientsTable
                                     clients={filtered}
                                     search={search}
                                     onSearch={setSearch}
                                     onEdit={setEditingId}
                                     onDelete={deleteClient}
+                                    onToggleBooking={handleToggleBooking}
                                 />
                             )}
                         </div>
@@ -513,12 +528,14 @@ function ClientsTable({
     onSearch,
     onEdit,
     onDelete,
+    onToggleBooking,
 }: {
     clients: Client[];
     search: string;
     onSearch: (v: string) => void;
     onEdit: (id: string) => void;
     onDelete: (id: string) => void;
+    onToggleBooking: (id: string, currentStatus: boolean) => void;
 }) {
     return (
         <Card className="border-neutral-200 shadow-sm">
@@ -572,11 +589,11 @@ function ClientsTable({
                                 <TableCell>
                                     <a
                                         className="inline-flex items-center gap-1 text-sm text-neutral-700 hover:text-neutral-900"
-                                        href={`https://${c.subdomain}`}
+                                        href={`https://${c.subdomain}.${process.env.NEXT_PUBLIC_SAAS_DOMAIN || "hotelsaas.com"}`}
                                         target="_blank"
                                         rel="noreferrer"
                                     >
-                                        {c.subdomain}
+                                        {c.subdomain}.{process.env.NEXT_PUBLIC_SAAS_DOMAIN || "hotelsaas.com"}
                                         <ExternalLink className="h-3 w-3" />
                                     </a>
                                 </TableCell>
@@ -593,7 +610,14 @@ function ClientsTable({
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="flex justify-end gap-2 items-center">
+                                        <div className="flex items-center gap-2 mr-2 border-r pr-4 border-neutral-200">
+                                            <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider text-left leading-tight">Booking<br/>Engine</span>
+                                            <Switch 
+                                                checked={!!c.is_booking_engine_enabled}
+                                                onCheckedChange={() => onToggleBooking(c.id, !!c.is_booking_engine_enabled)}
+                                            />
+                                        </div>
                                         <Button size="sm" variant="outline" onClick={() => onEdit(c.id)} className="gap-1">
                                             <Pencil className="h-3.5 w-3.5" /> Edit
                                         </Button>
