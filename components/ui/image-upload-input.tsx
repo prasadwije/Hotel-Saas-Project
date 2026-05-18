@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { UploadCloud, Loader2 } from "lucide-react";
@@ -23,6 +23,13 @@ export function ImageUploadInput({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Always keep a ref to the latest onChange so async callbacks never use
+  // a stale closure captured at render time.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -39,23 +46,21 @@ export function ImageUploadInput({
         body: formData,
       });
 
-      if (!res.ok) {
-        throw new Error("Upload failed");
-      }
+      if (!res.ok) throw new Error("Upload failed");
 
       const data = await res.json();
       if (data.url) {
-        onChange(data.url);
+        // Use the ref so we always call the *current* onChange, not the
+        // stale one captured when this handler was first created.
+        onChangeRef.current(data.url);
       }
     } catch (err) {
       console.error("Image upload failed", err);
-      alert("Failed to upload image.");
+      alert("Failed to upload image. Please try again.");
     } finally {
       setIsUploading(false);
-      // Reset input so the same file can be selected again if needed
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      // Reset the hidden file input so the same file can be re-selected.
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -65,7 +70,9 @@ export function ImageUploadInput({
         <Input
           placeholder={placeholder}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          // Every keystroke (including clearing) immediately dispatches the
+          // state update so the live preview re-renders without delay.
+          onChange={(e) => onChangeRef.current(e.target.value)}
           className="flex-1"
         />
         <Button
