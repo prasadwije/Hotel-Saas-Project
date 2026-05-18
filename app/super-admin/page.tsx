@@ -69,6 +69,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Slider } from "@/components/ui/slider";
 import { HotelTemplate } from "@/components/template/HotelTemplate";
 import { PreviewFrame } from "./preview-frame";
+import { ImageUploadInput } from "@/components/ui/image-upload-input";
 
 // ---------- Types ----------
 type ClientStatus = "active" | "inactive";
@@ -1123,7 +1124,7 @@ function ClientEditor({ client, packages, onChange, onDelete }: { client: Client
                         <div className="grid gap-3 md:grid-cols-2">
                             <Input placeholder="Name" value={item.name} onChange={(e) => set({ name: e.target.value })} />
                             <Input placeholder="Price" value={item.price} onChange={(e) => set({ price: e.target.value })} />
-                            <Input className="md:col-span-2" placeholder="Image URL" value={item.image ?? ""} onChange={(e) => set({ image: e.target.value })} />
+                            <ImageUploadInput className="md:col-span-2" hotelId={client.id} uploadType="menu" placeholder="Image URL" value={item.image ?? ""} onChange={(url) => set({ image: url })} />
                             <Textarea className="md:col-span-2" rows={2} placeholder="Description" value={item.description ?? ""} onChange={(e) => set({ description: e.target.value })} />
                         </div>
                     )}
@@ -1139,7 +1140,7 @@ function ClientEditor({ client, packages, onChange, onDelete }: { client: Client
                         <div className="grid gap-3 md:grid-cols-2">
                             <Input placeholder="Name" value={item.name} onChange={(e) => set({ name: e.target.value })} />
                             <Input placeholder="Price" value={item.price} onChange={(e) => set({ price: e.target.value })} />
-                            <Input className="md:col-span-2" placeholder="Image URL" value={item.image} onChange={(e) => set({ image: e.target.value })} />
+                            <ImageUploadInput className="md:col-span-2" hotelId={client.id} uploadType="rooms" placeholder="Image URL" value={item.image} onChange={(url) => set({ image: url })} />
                             <Textarea className="md:col-span-2" rows={2} placeholder="Description" value={item.description} onChange={(e) => set({ description: e.target.value })} />
                             <Input
                                 className="md:col-span-2"
@@ -1224,7 +1225,7 @@ function ClientEditor({ client, packages, onChange, onDelete }: { client: Client
                         <div className="grid gap-3 md:grid-cols-2">
                             <Input placeholder="Title" value={item.title} onChange={(e) => set({ title: e.target.value })} />
                             <Input placeholder="Distance (e.g. 2 km)" value={item.distance} onChange={(e) => set({ distance: e.target.value })} />
-                            <Input className="md:col-span-2" placeholder="Image URL" value={item.image} onChange={(e) => set({ image: e.target.value })} />
+                            <ImageUploadInput className="md:col-span-2" hotelId={client.id} uploadType="experiences" placeholder="Image URL" value={item.image} onChange={(url) => set({ image: url })} />
                             <Textarea className="md:col-span-2" rows={2} placeholder="Description" value={item.description} onChange={(e) => set({ description: e.target.value })} />
                         </div>
                     )}
@@ -1248,11 +1249,14 @@ function ClientEditor({ client, packages, onChange, onDelete }: { client: Client
                 </Card>
 
                 <HeroImagesEditor
+                    hotelId={client.id}
                     items={client.data.heroImages ?? []}
                     onChange={(items) => updateData({ heroImages: items })}
                 />
 
-                <StringListEditor
+                <ImageListEditor
+                    hotelId={client.id}
+                    uploadType="gallery"
                     title="Gallery images"
                     description="Each entry is a public image URL."
                     items={client.data.galleryImages ?? []}
@@ -1260,7 +1264,9 @@ function ClientEditor({ client, packages, onChange, onDelete }: { client: Client
                     placeholder="https://…"
                 />
 
-                <StringListEditor
+                <ImageListEditor
+                    hotelId={client.id}
+                    uploadType="trust-badges"
                     title="Trust badges / awards"
                     description="Logos shown in the trust strip (PNG/SVG URLs work best)."
                     items={client.data.trustBadges ?? []}
@@ -1345,19 +1351,23 @@ function ClientEditor({ client, packages, onChange, onDelete }: { client: Client
                             </p>
                         </Field>
                         <Field label="Favicon URL">
-                            <Input
+                            <ImageUploadInput
+                                hotelId={client.id}
+                                uploadType="favicon"
                                 value={client.data.seo?.favicon ?? ""}
-                                onChange={(e) =>
-                                    updateData({ seo: { ...client.data.seo, favicon: e.target.value } })
+                                onChange={(url) =>
+                                    updateData({ seo: { ...client.data.seo, favicon: url } })
                                 }
                                 placeholder="https://.../favicon.ico"
                             />
                         </Field>
                         <Field label="Social share image (OG image)">
-                            <Input
+                            <ImageUploadInput
+                                hotelId={client.id}
+                                uploadType="og-image"
                                 value={client.data.seo?.ogImage ?? ""}
-                                onChange={(e) =>
-                                    updateData({ seo: { ...client.data.seo, ogImage: e.target.value } })
+                                onChange={(url) =>
+                                    updateData({ seo: { ...client.data.seo, ogImage: url } })
                                 }
                                 placeholder="https://.../share.jpg (1200×630)"
                             />
@@ -1859,12 +1869,77 @@ function StringListEditor({
     );
 }
 
+function ImageListEditor({
+    title,
+    description,
+    items,
+    onChange,
+    hotelId,
+    uploadType,
+    placeholder,
+}: {
+    title: string;
+    description?: string;
+    items: string[];
+    onChange: (items: string[]) => void;
+    hotelId: string;
+    uploadType: string;
+    placeholder?: string;
+}) {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle className="text-base">{title}</CardTitle>
+                    {description && <CardDescription>{description}</CardDescription>}
+                </div>
+                <Button size="sm" variant="outline" onClick={() => onChange([...items, ""])} className="gap-1">
+                    <Plus className="h-4 w-4" /> Add
+                </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                {items.length === 0 && (
+                    <p className="rounded-md border border-dashed border-neutral-200 p-4 text-center text-sm text-neutral-500">
+                        No images yet.
+                    </p>
+                )}
+                {items.map((val, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                        <ImageUploadInput
+                            hotelId={hotelId}
+                            uploadType={uploadType}
+                            placeholder={placeholder}
+                            value={val}
+                            onChange={(url) => {
+                                const next = [...items];
+                                next[idx] = url;
+                                onChange(next);
+                            }}
+                            className="flex-1"
+                        />
+                        <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => onChange(items.filter((_, i) => i !== idx))}
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700 shrink-0"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
+    );
+}
+
 function HeroImagesEditor({
     items,
     onChange,
+    hotelId,
 }: {
     items: HeroImageInput[];
     onChange: (items: HeroImageInput[]) => void;
+    hotelId: string;
 }) {
     const normalized = items.map(normalizeHeroImage);
 
@@ -1941,10 +2016,12 @@ function HeroImagesEditor({
                             <div className="space-y-3">
                                 <div>
                                     <Label className="text-xs text-neutral-600">Image URL</Label>
-                                    <Input
+                                    <ImageUploadInput
+                                        hotelId={hotelId}
+                                        uploadType="hero"
                                         placeholder="https://…"
                                         value={item.url}
-                                        onChange={(e) => update(idx, { url: e.target.value })}
+                                        onChange={(url) => update(idx, { url })}
                                         className="mt-1"
                                     />
                                 </div>
